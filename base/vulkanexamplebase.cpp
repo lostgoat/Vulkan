@@ -690,6 +690,10 @@ VulkanExampleBase::VulkanExampleBase(bool enableValidation, PFN_GetEnabledFeatur
 		{
 			enableVSync = true;
 		}
+		if (arg == std::string("-high-priority"))
+		{
+			enableHighPriority = true;
+		}
 	}
 #if defined(__ANDROID__)
 	// Vulkan library is loaded dynamically on Android
@@ -717,7 +721,7 @@ VulkanExampleBase::VulkanExampleBase(bool enableValidation, PFN_GetEnabledFeatur
 
 #if !defined(__ANDROID__)
 	// Android Vulkan initialization is handled in APP_CMD_INIT_WINDOW event
-	initVulkan(enableValidation);
+	initVulkan(enableValidation, enableHighPriority);
 #endif
 }
 
@@ -788,7 +792,7 @@ VulkanExampleBase::~VulkanExampleBase()
 #endif
 }
 
-void VulkanExampleBase::initVulkan(bool enableValidation)
+void VulkanExampleBase::initVulkan(bool enableValidation, bool enableHighPriority)
 {
 	VkResult err;
 
@@ -836,7 +840,7 @@ void VulkanExampleBase::initVulkan(bool enableValidation)
 	// This is handled by a separate class that gets a logical device representation
 	// and encapsulates functions related to a device
 	vulkanDevice = new vk::VulkanDevice(physicalDevice);
-	VK_CHECK_RESULT(vulkanDevice->createLogicalDevice(enabledFeatures));
+	VK_CHECK_RESULT(vulkanDevice->createLogicalDevice(enabledFeatures, enableHighPriority));
 	device = vulkanDevice->logicalDevice;
 
 	// todo: remove
@@ -1230,7 +1234,7 @@ void VulkanExampleBase::handleAppCommand(android_app * app, int32_t cmd)
 		LOGD("APP_CMD_INIT_WINDOW");
 		if (vulkanExample->androidApp->window != NULL)
 		{
-			vulkanExample->initVulkan(false);
+			vulkanExample->initVulkan(false, false);
 			vulkanExample->initSwapchain();
 			vulkanExample->prepare();
 			assert(vulkanExample->prepared);

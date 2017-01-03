@@ -13,6 +13,7 @@
 #include <exception>
 #include <assert.h>
 #include "vulkan/vulkan.h"
+#include "vulkan/vk_ext_queue_global_priority.h"
 #include "vulkantools.h"
 #include "vulkanbuffer.hpp"
 
@@ -204,7 +205,7 @@ namespace vk
 		*
 		* @return VkResult of the device creation call
 		*/
-		VkResult createLogicalDevice(VkPhysicalDeviceFeatures enabledFeatures, bool useSwapChain = true, VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT)
+		VkResult createLogicalDevice(VkPhysicalDeviceFeatures enabledFeatures, bool enableHighPriority, bool useSwapChain = true, VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT)
 		{			
 			// Desired queues need to be requested upon logical device creation
 			// Due to differing queue family configurations of Vulkan implementations this can be a bit tricky, especially if the application
@@ -217,12 +218,24 @@ namespace vk
 
 			const float defaultQueuePriority(0.0f);
 
+#ifdef VK_EXT_queue_global_priority
+			VkQueueGlobalPriorityEXT vkQueueGlobalPriority{};
+			vkQueueGlobalPriority.sType = VK_STRUCTURE_TYPE_QUEUE_GLOBAL_PRIORITY_EXT;
+			vkQueueGlobalPriority.pNext = NULL;
+			vkQueueGlobalPriority.priority = enableHighPriority ? VK_QUEUE_GLOBAL_PRIORITY_HIGH : VK_QUEUE_GLOBAL_PRIORITY_NORMAL;
+
+			void *pExtParams = (void*)&vkQueueGlobalPriority;
+#else
+			printf("Warning: VK_EXT_queue_global_priority unsupported\n");
+			void *pExtParams = NULL;
+#endif
 			// Graphics queue
 			if (requestedQueueTypes & VK_QUEUE_GRAPHICS_BIT)
 			{
 				queueFamilyIndices.graphics = getQueueFamiliyIndex(VK_QUEUE_GRAPHICS_BIT);
 				VkDeviceQueueCreateInfo queueInfo{};
 				queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+				queueInfo.pNext = pExtParams;
 				queueInfo.queueFamilyIndex = queueFamilyIndices.graphics;
 				queueInfo.queueCount = 1;
 				queueInfo.pQueuePriorities = &defaultQueuePriority;
@@ -242,6 +255,7 @@ namespace vk
 					// If compute family index differs, we need an additional queue create info for the compute queue
 					VkDeviceQueueCreateInfo queueInfo{};
 					queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+					queueInfo.pNext = pExtParams;
 					queueInfo.queueFamilyIndex = queueFamilyIndices.compute;
 					queueInfo.queueCount = 1;
 					queueInfo.pQueuePriorities = &defaultQueuePriority;
@@ -263,6 +277,7 @@ namespace vk
 					// If compute family index differs, we need an additional queue create info for the compute queue
 					VkDeviceQueueCreateInfo queueInfo{};
 					queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+					queueInfo.pNext = pExtParams;
 					queueInfo.queueFamilyIndex = queueFamilyIndices.transfer;
 					queueInfo.queueCount = 1;
 					queueInfo.pQueuePriorities = &defaultQueuePriority;

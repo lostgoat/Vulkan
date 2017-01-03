@@ -54,6 +54,8 @@ private:
 	bool enableValidation = false;
 	// Set to true if v-sync will be forced for the swapchain
 	bool enableVSync = false;
+	// Set to true if queues should be created with global high priority extension
+	bool enableHighPriority = false;
 	// Device features enabled by the example
 	// If not set, no additional features are enabled (may result in validation layer errors)
 	VkPhysicalDeviceFeatures enabledFeatures = {};
@@ -214,7 +216,7 @@ public:
 	~VulkanExampleBase();
 
 	// Setup the vulkan instance, enable required extensions and connect to the physical device (GPU)
-	void initVulkan(bool enableValidation);
+	void initVulkan(bool enableValidation, bool enableHighPriority);
 
 #if defined(_WIN32)
 	void setupConsole(std::string title);
