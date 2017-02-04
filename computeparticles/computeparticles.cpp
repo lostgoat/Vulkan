@@ -13,6 +13,7 @@
 #include <string.h>
 #include <assert.h>
 #include <vector>
+#include <chrono>
 #include <random>
 
 #define GLM_FORCE_RADIANS
@@ -29,7 +30,7 @@
 // Lower particle count on Android for performance reasons
 #define PARTICLE_COUNT 128 * 1024
 #else
-#define PARTICLE_COUNT 256 * 1024
+#define PARTICLE_COUNT 256 * 1024 * 8
 #endif
 
 class VulkanExample : public VulkanExampleBase
@@ -607,21 +608,33 @@ public:
 		// Submit graphics commands
 		VulkanExampleBase::prepareFrame();
 
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &drawCmdBuffers[currentBuffer];
-		VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+		//submitInfo.commandBufferCount = 1;
+		//submitInfo.pCommandBuffers = &drawCmdBuffers[currentBuffer];
+		//VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
 
 		VulkanExampleBase::submitFrame();
 
-		// Submit compute commands
-		vkWaitForFences(device, 1, &compute.fence, VK_TRUE, UINT64_MAX);
-		vkResetFences(device, 1, &compute.fence);
 
-		VkSubmitInfo computeSubmitInfo = vkTools::initializers::submitInfo();
-		computeSubmitInfo.commandBufferCount = 1;
-		computeSubmitInfo.pCommandBuffers = &compute.commandBuffer;
 
-		VK_CHECK_RESULT(vkQueueSubmit(compute.queue, 1, &computeSubmitInfo, compute.fence));
+		while (true) {
+            static uint64_t frameCount = 0;
+
+			// Submit compute commands
+			vkResetFences(device, 1, &compute.fence);
+
+			VkSubmitInfo computeSubmitInfo = vkTools::initializers::submitInfo();
+			computeSubmitInfo.commandBufferCount = 1;
+			computeSubmitInfo.pCommandBuffers = &compute.commandBuffer;
+
+			auto start = std::chrono::steady_clock::now();
+			VK_CHECK_RESULT(vkQueueSubmit(compute.queue, 1, &computeSubmitInfo, compute.fence));
+			vkWaitForFences(device, 1, &compute.fence, VK_TRUE, UINT64_MAX);
+			auto end = std::chrono::steady_clock::now();
+            float currentFrameMs = std::chrono::duration <double, std::milli> (end-start).count();
+
+            if (frameCount++ > 100)
+                VulkanExampleBase::updateBenchmark(currentFrameMs, lastFPS, true);
+		}
 	}
 
 	void prepare()

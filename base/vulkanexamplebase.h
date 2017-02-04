@@ -341,6 +341,7 @@ public:
 	void renderLoop();
 
 	void updateTextOverlay();
+	void updateBenchmark(float currentFrameMs, float currentFps, bool benchMode);
 
 	// Called when the text overlay is updating
 	// Can be overriden in derived class to add custom text to the overlay

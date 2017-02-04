@@ -546,6 +546,7 @@ void VulkanExampleBase::renderLoop()
 		{
 			lastFPS = frameCounter;
 			updateTextOverlay();
+            updateBenchmark(frameTimer * 1000.0f, lastFPS, false);
 			fpsTimer = 0.0f;
 			frameCounter = 0;
 		}
@@ -597,6 +598,7 @@ void VulkanExampleBase::renderLoop()
 			}
 			lastFPS = frameCounter;
 			updateTextOverlay();
+            updateBenchmark(frameTimer * 1000.0f, lastFPS, false);
 			fpsTimer = 0.0f;
 			frameCounter = 0;
 		}
@@ -617,7 +619,6 @@ void VulkanExampleBase::updateTextOverlay()
 
 	std::stringstream ss;
 	ss << std::fixed << std::setprecision(3) << (frameTimer * 1000.0f) << "ms (" << lastFPS << " fps)";
-	printf("%s\n", ss.str().c_str());
 	textOverlay->addText(ss.str(), 5.0f, 25.0f, VulkanTextOverlay::alignLeft);
 
 	textOverlay->addText(deviceProperties.deviceName, 5.0f, 45.0f, VulkanTextOverlay::alignLeft);
@@ -625,6 +626,83 @@ void VulkanExampleBase::updateTextOverlay()
 	getOverlayText(textOverlay);
 
 	textOverlay->endTextUpdate();
+}
+
+void VulkanExampleBase::updateBenchmark(float currentFrameMs, float currentFps, bool benchMode)
+{
+    /* For ease of editing in a single place */
+
+    /* data dump file */
+    static std::ofstream benchFile;
+
+    static int nFrames = 0;
+    static float sFrameMaxMs = 0;
+    static float sFrameMinMs = FLT_MAX;
+
+    /* Count number of frames exceeding these values */
+    static uint32_t sFramesOverVal[] = { 5, 10, 16};
+    static constexpr int sFrameOverNum = sizeof(sFramesOverVal) / sizeof(sFramesOverVal[0]);
+    static uint32_t sFramesOverFull[sFrameOverNum] = {0};
+    static uint32_t sFramesOverHistory[sFrameOverNum] = {0};
+
+    /* How big do we want the history */
+    static constexpr int sHistorySize = 1000;
+    static std::deque<float> msHistory;
+    static std::deque<float> msHistorySorted;
+
+    static constexpr int BUF_SIZE = 512;
+    char buf[BUF_SIZE];
+    std::string out = "";
+    float historyMin = FLT_MAX;
+    float historyMax = 0;
+    float historyAvg = 0;
+    float historyMedian = 0;
+
+    if (benchMode) {
+        if (!benchFile.is_open()) {
+            benchFile.open("bench.csv");
+            benchFile << "Ms" << std::endl;
+        }
+
+        benchFile << currentFrameMs << std::endl;
+        benchFile.flush();
+    }
+
+    if (currentFrameMs != 1000.0f && currentFrameMs > sFrameMaxMs)
+        sFrameMaxMs = currentFrameMs;
+    if (currentFrameMs < sFrameMinMs)
+        sFrameMinMs = currentFrameMs;
+
+    msHistory.push_front(currentFrameMs);
+
+    msHistorySorted = msHistory;
+    std::sort(msHistorySorted.begin(), msHistorySorted.end(), std::less<float>());
+    historyMedian = msHistorySorted.at(msHistory.size()/2);
+
+    for (auto &val : msHistory) {
+        historyMax = val > historyMax ? val : historyMax;
+        historyMin = val < historyMin ? val : historyMin;
+        historyAvg += val;
+    }
+    historyAvg /= msHistory.size();
+
+    if (msHistory.size() > sHistorySize)
+        msHistory.pop_back();
+
+    snprintf(buf, BUF_SIZE, "Max: %.3fms Min: %.3fms MaxH: %.3fms MinH: %.3fms ",
+        sFrameMaxMs, sFrameMinMs, historyMax, historyMin);
+    out += buf;
+
+    snprintf(buf, BUF_SIZE, "Med: %.3fms Avg: %.3fms Frames: %d Cur: %.3fms ",
+            historyMedian, historyAvg, nFrames++, currentFrameMs);
+    out += buf;
+
+    printf("%s\n", out.c_str());
+
+    if (benchMode && nFrames == 6000) {
+        benchFile.close();
+        exit(0);
+    }
 }
 
 void VulkanExampleBase::getOverlayText(VulkanTextOverlay *textOverlay)
